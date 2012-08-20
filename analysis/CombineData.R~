@@ -1,0 +1,54 @@
+# Sort all dataframes by acct num, then merge factors w/ data
+
+RAND = RAND[order(RAND$Acct),]
+ODI = ODI[order(ODI$Acct),]
+Factors = Factors[order(Factors$Acct),]
+
+RAND$Acct <- NULL
+ODI$Acct <- NULL
+
+CSData <- cbind(Factors, RAND, ODI)
+
+
+# Create and add derived columns
+WeightT <- cut(CSData$BMI, c(0, 18.5, 25, 30, 99), labels = c("UNDERWEIGHT",
+                "NORMAL", "OVERWEIGHT", "OBESE"))
+
+CSData <- data.frame(BodyType = WeightT, CSData); rm(WeightT)
+CSData$X <- NULL
+
+AgeDem <- cut(CSData$Age, c(0, 18, 25, 35, 45, 55, 65, 75, 85, 199),
+              labels = c("0TO18", "19TO25", "26TO35", "36TO45", "46TO55",
+              "56TO65", "66TO75", "76TO85", "86TO100"))
+
+CSData <- data.frame(AgeDemo = AgeDem, CSData); rm(AgeDem)
+
+# Compute degree of improvement:
+# (% imp GHC) + (%imp ODI) / 2
+attach(CSData)
+imp_pct_ghc <- (DiffGHC/PreGHC) * 100
+imp_pct_odi <- -(DiffODI) #already in pct
+
+avg_imp <- round((imp_pct_ghc + imp_pct_odi)/3)
+detach(CSData)
+
+CSData <- data.frame(CSData, ImpIndex = avg_imp)
+
+impf <- ifelse(CSData$ImpIndex >= 5, "YES", "NO")
+CSData <- data.frame(CSData, ImpFlag = factor(impf))
+
+# Active sex life?
+ResDF <- read.csv("../Results/_Results.csv")
+sexl_pre <- ifelse(ResDF$os8 == 99, "NO", "YES")
+sexl_post <- ifelse(ResDF$os18 == 99, "NO", "YES")
+
+CSData <- data.frame(SexLifePre = sexl_pre, SexLifePost = sexl_post, CSData)
+rm(ResDF, sexl_pre, sexl_post)
+
+write.csv(CSData, paste("../Results/___CSData-", Sys.Date(), ".csv", sep = ""))
+
+
+#Clean up
+rm(RAND, ODI, Factors)
+rm(imp_pct_ghc, imp_pct_odi, impf, avg_imp)
+
